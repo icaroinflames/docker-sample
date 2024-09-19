@@ -1,0 +1,77 @@
+services:
+  server1:
+    build:
+      context: ./server1
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4000:3000"
+    volumes:
+      - ./server1/plugins:/usr/src/app/plugins
+      - ./server1/routes:/usr/src/app/routes
+      - ./server1/app.js:/usr/src/app/app/app.js
+
+  server2:
+    build:
+      context: ./server2
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4001:3000"
+    volumes:
+      - ./server2/plugins:/usr/src/app/plugins
+      - ./server2/routes:/usr/src/app/routes
+      - ./server2/app.js:/usr/src/app/app/app.js
+
+  database:
+    image: postgres:16.4-alpine3.20
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ./data/db-data:/var/lib/postgresql/data
+      - ./data/db-init:/docker-entrypoint-initdb.d
+
+  hasura-engine:
+    image: hasura/graphql-engine
+    ports:
+      - "8080:8080"
+    depends_on:
+      - "database"
+    restart: always
+    environment:
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_ADMIN_SECRET:-hasura}"
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@database:5432/postgres?application_name=hasura-engine
+      # HASURA_GRAPHQL_AUTH_HOOK: http://hasura-auth:8080/hasura-auth
+      # HASURA_GRAPHQL_PROXY_URL: http://proxy:8080
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+      HASURA_GRAPHQL_INFER_FUNCTION_PERMISSIONS: "false"
+    volumes:
+      - ./hasura/migrations:/hasura-migrations
+      - ./hasura/metadata:/hasura-metadata
+
+  # hasura-console:
+  #   container_name: hasura-console
+  #   image: hasura/graphql-engine:v2.44.0-beta.1.cli-migrations-v3
+  #   ports:
+  #     - "8081:8080"
+  #   depends_on:
+  #     - "database"
+  #   restart: always
+  #   environment:
+  #     HASURA_GRAPHQL_DEV_MODE: "true"
+  #     HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+  #     HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_ADMIN_SECRET:-hasura}"
+  #     HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@database:5432/postgres?application_name=hasura-engine
+  #     # HASURA_GRAPHQL_AUTH_HOOK: http://hasura-auth:8080/hasura-auth
+  #     # HASURA_GRAPHQL_PROXY_URL: http://proxy:8080
+  #     HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+  #     HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+  #     HASURA_GRAPHQL_INFER_FUNCTION_PERMISSIONS: "false"
+  #   volumes:
+  #     - ./hasura/migrations:/hasura-migrations
+  #     - ./hasura/metadata:/hasura-metadata
